@@ -53,7 +53,6 @@ import org.springframework.util.PathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.util.StringValueResolver;
 import org.springframework.web.HttpRequestHandler;
-import org.springframework.web.accept.ContentNegotiationManager;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.support.ServletContextResource;
 import org.springframework.web.cors.CorsConfiguration;
@@ -122,8 +121,6 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 	private @Nullable ResourceHttpMessageConverter resourceHttpMessageConverter;
 
 	private @Nullable ResourceRegionHttpMessageConverter resourceRegionHttpMessageConverter;
-
-	private @Nullable ContentNegotiationManager contentNegotiationManager;
 
 	private final Map<String, MediaType> mediaTypes = new HashMap<>(4);
 
@@ -542,8 +539,8 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 		prepareResponse(response);
 
 		// Header phase
-		String eTagValue = (this.getEtagGenerator() != null) ? this.getEtagGenerator().apply(resource) : null;
-		long lastModified = (this.isUseLastModified()) ? resource.lastModified() : -1;
+		String eTagValue = (getEtagGenerator() != null ? getEtagGenerator().apply(resource) : null);
+		long lastModified = (isUseLastModified() ? resource.lastModified() : -1);
 		if (new ServletWebRequest(request, response).checkNotModified(eTagValue, lastModified)) {
 			logger.trace("Resource not modified");
 			return;
@@ -576,6 +573,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 						HttpRange.toResourceRegions(httpRanges, resource), mediaType, outputMessage);
 			}
 			catch (IllegalArgumentException ex) {
+				response.setContentType(null);
 				response.setHeader(HttpHeaders.CONTENT_RANGE, "bytes */" + resource.contentLength());
 				response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
 			}
@@ -671,7 +669,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 	 * Called for GET requests as well as HEAD requests.
 	 * @param response current servlet response
 	 * @param resource the identified resource (never {@code null})
-	 * @param mediaType the resource's media type (never {@code null})
+	 * @param mediaType the resource's media type
 	 * @throws IOException in case of errors while setting the headers
 	 */
 	protected void setHeaders(HttpServletResponse response, Resource resource, @Nullable MediaType mediaType)
