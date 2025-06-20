@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2025 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.springframework.beans.factory.config;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Optional;
@@ -165,20 +164,6 @@ public class DependencyDescriptor extends InjectionPoint implements Serializable
 		else {
 			return !obtainMethodParameter().isOptional();
 		}
-	}
-
-	/**
-	 * Check whether the underlying field is annotated with any variant of a
-	 * {@code Nullable} annotation, for example, {@code jakarta.annotation.Nullable} or
-	 * {@code edu.umd.cs.findbugs.annotations.Nullable}.
-	 */
-	private boolean hasNullableAnnotation() {
-		for (Annotation ann : getAnnotations()) {
-			if ("Nullable".equals(ann.annotationType().getSimpleName())) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	/**
