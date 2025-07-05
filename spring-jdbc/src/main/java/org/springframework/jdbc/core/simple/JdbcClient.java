@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2025 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -131,6 +131,30 @@ public interface JdbcClient {
 	 * A statement specification for parameter bindings and query/update execution.
 	 */
 	interface StatementSpec {
+
+		/**
+		 * Apply the given fetch size to any subsequent query statement.
+		 * @param fetchSize the fetch size
+		 * @since 7.0
+		 * @see org.springframework.jdbc.core.JdbcTemplate#setFetchSize
+		 */
+		StatementSpec withFetchSize(int fetchSize);
+
+		/**
+		 * Apply the given maximum number of rows to any subsequent query statement.
+		 * @param maxRows the maximum number of rows
+		 * @since 7.0
+		 * @see org.springframework.jdbc.core.JdbcTemplate#setMaxRows
+		 */
+		StatementSpec withMaxRows(int maxRows);
+
+		/**
+		 * Apply the given query timeout to any subsequent query statement.
+		 * @param queryTimeout the query timeout in seconds
+		 * @since 7.0
+		 * @see org.springframework.jdbc.core.JdbcTemplate#setQueryTimeout
+		 */
+		StatementSpec withQueryTimeout(int queryTimeout);
 
 		/**
 		 * Bind a positional JDBC statement parameter for "?" placeholder resolution

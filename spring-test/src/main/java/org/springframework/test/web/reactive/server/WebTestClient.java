@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2025 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ import org.springframework.http.client.reactive.ClientHttpConnector;
 import org.springframework.http.client.reactive.ClientHttpRequest;
 import org.springframework.http.codec.ClientCodecConfigurer;
 import org.springframework.http.codec.ServerCodecConfigurer;
+import org.springframework.http.server.reactive.SslInfo;
 import org.springframework.test.json.JsonComparator;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.json.JsonComparison;
@@ -274,6 +275,15 @@ public interface WebTestClient {
 		 * @param sessionManager the session manager to use
 		 */
 		<T extends B> T webSessionManager(WebSessionManager sessionManager);
+
+		/**
+		 * Set or reset SSL session information to assign to mock server requests.
+		 * @param info the {@link SslInfo} to use
+		 * @since 7.0
+		 * @see SslInfo#from(String)
+		 * @see SslInfo#from(String, java.security.cert.X509Certificate...)
+		 */
+		<T extends B> T sslInfo(@Nullable SslInfo info);
 
 		/**
 		 * Shortcut for pre-packaged customizations to the mock server setup.
