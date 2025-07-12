@@ -6,7 +6,6 @@
 This section discusses request mapping for annotated controllers.
 
 
-
 [[mvc-ann-requestmapping-annotation]]
 == `@RequestMapping`
 
@@ -25,9 +24,10 @@ There are also HTTP method specific shortcut variants of `@RequestMapping`:
 * `@DeleteMapping`
 * `@PatchMapping`
 
-The shortcuts are xref:web/webmvc/mvc-controller/ann-requestmapping.adoc#mvc-ann-requestmapping-composed[Custom Annotations] that are provided because,
-arguably, most controller methods should be mapped to a specific HTTP method versus
-using `@RequestMapping`, which, by default, matches to all HTTP methods.
+The shortcuts are
+xref:web/webmvc/mvc-controller/ann-requestmapping.adoc#mvc-ann-requestmapping-composed[Custom Annotations]
+that are provided because, arguably, most controller methods should be mapped to a specific
+HTTP method versus using `@RequestMapping`, which, by default, matches to all HTTP methods.
 A `@RequestMapping` is still needed at the class level to express shared mappings.
 
 NOTE: `@RequestMapping` cannot be used in conjunction with other `@RequestMapping`
@@ -82,7 +82,6 @@ Kotlin::
 	}
 ----
 ======
-
 
 
 [[mvc-ann-requestmapping-uri-templates]]
@@ -222,7 +221,6 @@ URI path patterns can also have embedded `${...}` placeholders that are resolved
 by using `PropertySourcesPlaceholderConfigurer` against local, system, environment, and
 other property sources. You can use this, for example, to parameterize a base URL based on
 some external configuration.
-
 
 
 [[mvc-ann-requestmapping-pattern-comparison]]
@@ -425,7 +423,8 @@ Kotlin::
 ======
 
 TIP: You can match `Content-Type` and `Accept` with the headers condition, but it is better to use
-xref:web/webmvc/mvc-controller/ann-requestmapping.adoc#mvc-ann-requestmapping-consumes[consumes] and xref:web/webmvc/mvc-controller/ann-requestmapping.adoc#mvc-ann-requestmapping-produces[produces]
+xref:web/webmvc/mvc-controller/ann-requestmapping.adoc#mvc-ann-requestmapping-consumes[consumes]
+and xref:web/webmvc/mvc-controller/ann-requestmapping.adoc#mvc-ann-requestmapping-produces[produces]
 instead.
 
 
@@ -433,24 +432,24 @@ instead.
 == API Version
 [.small]#xref:web/webflux/controller/ann-requestmapping.adoc#webflux-ann-requestmapping-version[See equivalent in the Reactive stack]#
 
-There is no standard way to specify an API version, so you need to configure that first
-through the xref:web/webmvc/mvc-config/api-version.adoc[MVC Config] along with other
-config options. This results in the creation of an
+There is no standard way to specify an API version, so when you enable API versioning
+in the xref:web/webmvc/mvc-config/api-version.adoc[MVC Config] you need
+to specify how to resolve the version. The MVC Config creates an
 xref:web/webmvc-versioning.adoc#mvc-versioning-strategy[ApiVersionStrategy] that in turn
-supports request mapping.
+is used to map requests.
 
 Once API versioning is enabled, you can begin to map requests with versions.
-The `@RequestMapping` version attribute supports the following:
+The `@RequestMapping` `version` attribute supports the following:
 
-- No value -- match any version
-- Fixed version ("1.2") -- match the given version only
-- Baseline version ("1.2+") -- match the given version and above
+- No value -- matches any version
+- Fixed version ("1.2") -- matches the given version only
+- Baseline version ("1.2+") -- matches the given version and above
 
 If multiple controller methods have a version less than or equal to the request version,
-the one closest to the request version is considered for mapping purposes,
+the highest of those, and closest to the request version, is the one considered,
 in effect superseding the rest.
 
-To illustrate this, consider the following controller mappings:
+To illustrate this, consider the following mappings:
 
 [tabs]
 ======
@@ -500,12 +499,15 @@ For request with version `"1.5"`:
 - (4) matches and is *chosen* as the highest match
 
 A request with version `"1.6"` does not have a match. (1) and (3) do match, but are
-superseded by (4), which does not match. In this scenario, `NotAcceptableApiVersionException`
-is raised resulting in a 400 response.
+superseded by (4), which allows only a strict match, and therefore does not match.
+In this scenario, a `NotAcceptableApiVersionException` results in a 400 response.
 
-NOTE: The above assumes the request version is a "supported" versions. If not it would
-fail xref:web/webmvc-versioning.adoc#mvc-versioning-validation[Validation].
+NOTE: The above assumes the request version is a
+xref:web/webmvc/mvc-config/api-version.adoc["supported" version], or otherwise it
+would fail.
 
+See xref:web/webmvc-versioning.adoc[API Versioning] for more details on underlying
+infrastructure and support for API Versioning.
 
 
 

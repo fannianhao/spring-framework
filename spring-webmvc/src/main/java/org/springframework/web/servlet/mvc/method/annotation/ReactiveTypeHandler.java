@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2025 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -135,7 +135,8 @@ class ReactiveTypeHandler {
 	 * @return an emitter for streaming, or {@code null} if handled internally
 	 * with a {@link DeferredResult}
 	 */
-	public @Nullable ResponseBodyEmitter handleValue(Object returnValue, MethodParameter returnType,
+	public @Nullable ResponseBodyEmitter handleValue(
+			Object returnValue, MethodParameter returnType, @Nullable MediaType presetMediaType,
 			ModelAndViewContainer mav, NativeWebRequest request) throws Exception {
 
 		Assert.notNull(returnValue, "Expected return value");
@@ -154,7 +155,7 @@ class ReactiveTypeHandler {
 		ResolvableType elementType = ResolvableType.forMethodParameter(returnType).getGeneric();
 		Class<?> elementClass = elementType.toClass();
 
-		Collection<MediaType> mediaTypes = getMediaTypes(request);
+		Collection<MediaType> mediaTypes = (presetMediaType != null ? List.of(presetMediaType) : getMediaTypes(request));
 		Optional<MediaType> mediaType = mediaTypes.stream().filter(MimeType::isConcrete).findFirst();
 
 		if (adapter.isMultiValue()) {
@@ -223,11 +224,11 @@ class ReactiveTypeHandler {
 	private Collection<MediaType> getMediaTypes(NativeWebRequest request)
 			throws HttpMediaTypeNotAcceptableException {
 
-		Collection<MediaType> mediaTypes = (Collection<MediaType>) request.getAttribute(
+		Collection<MediaType> producibleMediaTypes = (Collection<MediaType>) request.getAttribute(
 				HandlerMapping.PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
 
-		return CollectionUtils.isEmpty(mediaTypes) ?
-				this.contentNegotiationManager.resolveMediaTypes(request) : mediaTypes;
+		return (CollectionUtils.isEmpty(producibleMediaTypes) ?
+				this.contentNegotiationManager.resolveMediaTypes(request) : producibleMediaTypes);
 	}
 
 	private ResponseBodyEmitter getEmitter(MediaType mediaType) {

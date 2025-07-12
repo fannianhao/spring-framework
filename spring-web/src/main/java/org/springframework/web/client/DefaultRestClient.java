@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2025 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -214,7 +214,8 @@ final class DefaultRestClient implements RestClient {
 
 	@SuppressWarnings({"rawtypes", "unchecked"})
 	private <T> @Nullable T readWithMessageConverters(
-			ClientHttpResponse clientResponse, Runnable callback, Type bodyType, Class<T> bodyClass) {
+			ClientHttpResponse clientResponse, Runnable callback, Type bodyType, Class<T> bodyClass,
+			@Nullable Map<String, Object> hints) {
 
 		MediaType contentType = getContentType(clientResponse);
 
@@ -241,7 +242,7 @@ final class DefaultRestClient implements RestClient {
 						if (logger.isDebugEnabled()) {
 							logger.debug("Reading to [" + resolvableType + "]");
 						}
-						return (T) smartMessageConverter.read(resolvableType, responseWrapper, null);
+						return (T) smartMessageConverter.read(resolvableType, responseWrapper, hints);
 					}
 				}
 				else if (messageConverter.canRead(bodyClass, contentType)) {
@@ -307,6 +308,8 @@ final class DefaultRestClient implements RestClient {
 		private @Nullable Map<String, Object> attributes;
 
 		private @Nullable Consumer<ClientHttpRequest> httpRequestConsumer;
+
+		private @Nullable Map<String, Object> hints;
 
 		public DefaultRequestBodyUriSpec(HttpMethod httpMethod) {
 			this.httpMethod = httpMethod;
@@ -474,8 +477,30 @@ final class DefaultRestClient implements RestClient {
 
 		@Override
 		public RequestBodySpec body(StreamingHttpOutputMessage.Body body) {
-			this.body = request -> body.writeTo(request.getBody());
+			this.body = request -> {
+				if (request instanceof StreamingHttpOutputMessage streamingMessage) {
+					streamingMessage.setBody(body);
+				}
+				else {
+					body.writeTo(request.getBody());
+				}
+			};
 			return this;
+		}
+
+		@Override
+		public DefaultRequestBodyUriSpec hint(String key, Object value) {
+			getHints().put(key, value);
+			return this;
+		}
+
+		private Map<String, Object> getHints() {
+			Map<String, Object> hints = this.hints;
+			if (hints == null) {
+				hints = new ConcurrentHashMap<>(1);
+				this.hints = hints;
+			}
+			return hints;
 		}
 
 		@SuppressWarnings({"rawtypes", "unchecked"})
@@ -497,7 +522,7 @@ final class DefaultRestClient implements RestClient {
 					ResolvableType resolvableType = ResolvableType.forType(bodyType);
 					if (smartMessageConverter.canWrite(resolvableType, bodyClass, contentType)) {
 						logBody(body, contentType, smartMessageConverter);
-						smartMessageConverter.write(body, resolvableType, contentType, clientRequest, null);
+						smartMessageConverter.write(body, resolvableType, contentType, clientRequest, this.hints);
 						return;
 					}
 				}
@@ -536,7 +561,7 @@ final class DefaultRestClient implements RestClient {
 		}
 
 		@Override
-		public <T> @Nullable T exchange(ExchangeFunction<T> exchangeFunction, boolean close) {
+		public <T extends @Nullable Object> T exchange(ExchangeFunction<T> exchangeFunction, boolean close) {
 			return exchangeInternal(exchangeFunction, close);
 		}
 
@@ -547,7 +572,7 @@ final class DefaultRestClient implements RestClient {
 			return value;
 		}
 
-		private <T> @Nullable T exchangeInternal(ExchangeFunction<T> exchangeFunction, boolean close) {
+		private <T extends @Nullable Object> T exchangeInternal(ExchangeFunction<T> exchangeFunction, boolean close) {
 			Assert.notNull(exchangeFunction, "ExchangeFunction must not be null");
 
 			ClientHttpResponse clientResponse = null;
@@ -581,7 +606,7 @@ final class DefaultRestClient implements RestClient {
 				}
 				clientResponse = clientRequest.execute();
 				observationContext.setResponse(clientResponse);
-				ConvertibleClientHttpResponse convertibleWrapper = new DefaultConvertibleClientHttpResponse(clientResponse);
+				ConvertibleClientHttpResponse convertibleWrapper = new DefaultConvertibleClientHttpResponse(clientResponse, this.hints);
 				return exchangeFunction.exchange(clientRequest, convertibleWrapper);
 			}
 			catch (IOException ex) {
@@ -745,6 +770,8 @@ final class DefaultRestClient implements RestClient {
 
 		private final int defaultStatusHandlerCount;
 
+		private @Nullable Map<String, Object> hints;
+
 		DefaultResponseSpec(RequestHeadersSpec<?> requestHeadersSpec) {
 			this.requestHeadersSpec = requestHeadersSpec;
 			this.statusHandlers.addAll(DefaultRestClient.this.defaultStatusHandlers);
@@ -776,15 +803,17 @@ final class DefaultRestClient implements RestClient {
 		}
 
 		@Override
+		@SuppressWarnings("NullAway") // See https://github.com/uber/NullAway/issues/1075
 		public <T> @Nullable T body(Class<T> bodyType) {
-			return executeAndExtract((request, response) -> readBody(request, response, bodyType, bodyType));
+			return executeAndExtract((request, response) -> readBody(request, response, bodyType, bodyType, this.hints));
 		}
 
 		@Override
+		@SuppressWarnings("NullAway") // See https://github.com/uber/NullAway/issues/1075
 		public <T> @Nullable T body(ParameterizedTypeReference<T> bodyType) {
 			Type type = bodyType.getType();
 			Class<T> bodyClass = bodyClass(type);
-			return executeAndExtract((request, response) -> readBody(request, response, type, bodyClass));
+			return executeAndExtract((request, response) -> readBody(request, response, type, bodyClass, this.hints));
 		}
 
 		@Override
@@ -801,7 +830,7 @@ final class DefaultRestClient implements RestClient {
 
 		private <T> ResponseEntity<T> toEntityInternal(Type bodyType, Class<T> bodyClass) {
 			ResponseEntity<T> entity = executeAndExtract((request, response) -> {
-				T body = readBody(request, response, bodyType, bodyClass);
+				T body = readBody(request, response, bodyType, bodyClass, this.hints);
 				try {
 					return ResponseEntity.status(response.getStatusCode())
 							.headers(response.getHeaders())
@@ -838,13 +867,28 @@ final class DefaultRestClient implements RestClient {
 			return entity;
 		}
 
-		public <T> @Nullable T executeAndExtract(RequestHeadersSpec.ExchangeFunction<T> exchangeFunction) {
+		@Override
+		public ResponseSpec hint(String key, Object value) {
+			getHints().put(key, value);
+			return this;
+		}
+
+		private Map<String, Object> getHints() {
+			Map<String, Object> hints = this.hints;
+			if (hints == null) {
+				hints = new ConcurrentHashMap<>(1);
+				this.hints = hints;
+			}
+			return hints;
+		}
+
+		public <T extends @Nullable Object> T executeAndExtract(RequestHeadersSpec.ExchangeFunction<T> exchangeFunction) {
 			return this.requestHeadersSpec.exchange(exchangeFunction);
 		}
 
-		private <T> @Nullable T readBody(HttpRequest request, ClientHttpResponse response, Type bodyType, Class<T> bodyClass) {
+		private <T> @Nullable T readBody(HttpRequest request, ClientHttpResponse response, Type bodyType, Class<T> bodyClass, @Nullable Map<String, Object> hints) {
 			return DefaultRestClient.this.readWithMessageConverters(
-					response, () -> applyStatusHandlers(request, response), bodyType, bodyClass);
+					response, () -> applyStatusHandlers(request, response), bodyType, bodyClass, hints);
 
 		}
 
@@ -871,20 +915,23 @@ final class DefaultRestClient implements RestClient {
 
 		private final ClientHttpResponse delegate;
 
-		public DefaultConvertibleClientHttpResponse(ClientHttpResponse delegate) {
+		private final @Nullable Map<String, Object> hints;
+
+		public DefaultConvertibleClientHttpResponse(ClientHttpResponse delegate, @Nullable Map<String, Object> hints) {
 			this.delegate = delegate;
+			this.hints = hints;
 		}
 
 		@Override
 		public <T> @Nullable T bodyTo(Class<T> bodyType) {
-			return readWithMessageConverters(this.delegate, () -> {} , bodyType, bodyType);
+			return readWithMessageConverters(this.delegate, () -> {} , bodyType, bodyType, this.hints);
 		}
 
 		@Override
 		public <T> @Nullable T bodyTo(ParameterizedTypeReference<T> bodyType) {
 			Type type = bodyType.getType();
 			Class<T> bodyClass = bodyClass(type);
-			return readWithMessageConverters(this.delegate, () -> {}, type, bodyClass);
+			return readWithMessageConverters(this.delegate, () -> {}, type, bodyClass, this.hints);
 		}
 
 		@Override
